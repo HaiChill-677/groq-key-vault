@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Groq Key Vault — Kho lưu trữ API Key</title>
+  <meta name="description" content="Kho lưu trữ Groq API Key tối giản, monochrome, dạng khung bo góc, hỗ trợ lấy key qua giao diện web và qua code trên GitHub Pages." />
+  <link
+    rel="icon"
+    type="image/svg+xml"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111111'/%3E%3Cpath d='M13.5 19a4.5 4.5 0 1 1 3.7-7.1L23 11.9v2.6h-2.2v2.2H18v1.2a4.5 4.5 0 0 1-4.5 1.1Zm-1.2-4.5a1.3 1.3 0 1 0 2.6 0 1.3 1.3 0 0 0-2.6 0Z' fill='%23ffffff'/%3E%3C/svg%3E"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="container">
+    <!-- HEADER FRAME -->
+    <header class="frame header-frame">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="10" rx="3"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            <circle cx="12" cy="16" r="1.3"></circle>
+          </svg>
+        </div>
+        <div>
+          <h1>GROQ KEY VAULT</h1>
+          <p class="subtitle">Kho lưu trữ Groq API Key • Monochrome • Static GitHub Pages</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <span id="mode-badge" class="pill pill-outline">Đang tải...</span>
+        <button id="theme-toggle" type="button" class="btn btn-secondary btn-sm" title="Chuyển chế độ Sáng / Tối">
+          Giao diện: Sáng
+        </button>
+        <button id="reload-btn" type="button" class="btn btn-secondary btn-sm" title="Tải lại keys.json">
+          Tải lại
+        </button>
+      </div>
+    </header>
+
+    <!-- SOURCE / STATUS NOTICE -->
+    <div id="source-notice" class="frame notice-frame hidden" role="status"></div>
+
+    <!-- OVERVIEW & QUICK ACTIONS FRAME -->
+    <section class="frame">
+      <div class="section-head">
+        <h2>Tổng quan &amp; Lấy Key nhanh</h2>
+        <span id="updated-at" class="muted mono small"></span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box">
+          <span class="stat-label">Tổng số Key</span>
+          <strong id="stat-total" class="stat-value">0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Đang hoạt động</span>
+          <strong id="stat-active" class="stat-value">0</strong>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Trạng thái Kho</span>
+          <strong id="stat-state" class="stat-value mono-sm">Đang đọc</strong>
+        </div>
+      </div>
+
+      <div class="endpoint-row">
+        <span class="endpoint-label">Endpoint JSON</span>
+        <input id="endpoint-preview" class="input mono endpoint-input" type="text" readonly aria-label="Endpoint JSON URL" />
+        <button id="copy-endpoint-btn" type="button" class="btn btn-secondary btn-sm">Chép URL</button>
+        <a href="./keys.json" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">Mở JSON</a>
+      </div>
+
+      <div class="actions-row">
+        <button id="pick-round-robin-btn" type="button" class="btn btn-primary">
+          Lấy 1 Key nhanh (Xoay vòng)
+        </button>
+        <button id="pick-random-btn" type="button" class="btn btn-secondary">
+          Lấy ngẫu nhiên
+        </button>
+        <button id="test-all-btn" type="button" class="btn btn-secondary">
+          Kiểm tra tất cả
+        </button>
+        <button id="copy-env-btn" type="button" class="btn btn-secondary">
+          Chép .env
+        </button>
+        <button id="copy-json-btn" type="button" class="btn btn-secondary">
+          Chép mảng JSON
+        </button>
+      </div>
+
+      <div id="picked-strip" class="picked-strip hidden">
+        <div class="picked-meta">
+          <span class="pill pill-solid">Key vừa lấy</span>
+          <span id="picked-label" class="small strong"></span>
+        </div>
+        <div class="picked-value-row">
+          <code id="picked-value" class="mono picked-code"></code>
+          <button id="picked-toggle-btn" type="button" class="btn btn-secondary btn-xs">Hiện</button>
+          <button id="picked-copy-btn" type="button" class="btn btn-secondary btn-xs">Chép lại</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PASSPHRASE UNLOCK FRAME (ONLY WHEN ENCRYPTED & LOCKED) -->
+    <section id="unlock-frame" class="frame unlock-frame hidden">
+      <div class="unlock-inner">
+        <div class="unlock-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="11" width="16" height="10" rx="3"></rect>
+            <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+          </svg>
+        </div>
+        <h2>Kho key đang được mã hóa (AES-256-GCM)</h2>
+        <p class="muted">
+          Nhập mật khẩu (passphrase) để giải mã trực tiếp trên trình duyệt. Mật khẩu không được gửi đi hay lưu vào repository.
+        </p>
+        <form id="unlock-form" class="unlock-form">
+          <div class="input-group">
+            <input
+              id="unlock-passphrase"
+              class="input mono"
+              type="password"
+              placeholder="Nhập passphrase để mở khóa..."
+              autocomplete="current-password"
+              required
+            />
+            <button id="unlock-toggle-vis" type="button" class="btn btn-secondary btn-sm">Hiện</button>
+          </div>
+          <button type="submit" class="btn btn-primary">Giải mã &amp; Mở kho</button>
+        </form>
+        <p id="unlock-error" class="error-text hidden"></p>
+      </div>
+    </section>
+
+    <!-- KEY VAULT LIST FRAME -->
+    <section id="vault-frame" class="frame">
+      <div class="section-head">
+        <h2>Danh sách Key trong kho</h2>
+        <div class="vault-tools">
+          <button id="toggle-all-visibility-btn" type="button" class="btn btn-secondary btn-sm">
+            Hiện tất cả
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <input
+          id="search-input"
+          class="input search-input"
+          type="search"
+          placeholder="Tìm theo nhãn hoặc 4 ký tự cuối..."
+          aria-label="Tìm kiếm key"
+        />
+        <div class="segmented" role="group" aria-label="Lọc trạng thái key">
+          <button type="button" class="seg-btn is-active" data-filter="all">Tất cả</button>
+          <button type="button" class="seg-btn" data-filter="active">Hoạt động</button>
+          <button type="button" class="seg-btn" data-filter="inactive">Tạm tắt / Lỗi</button>
+        </div>
+      </div>
+
+      <div id="key-list" class="key-list"></div>
+    </section>
+
+    <!-- CODE GUIDE & DEPLOY FRAME -->
+    <section class="frame">
+      <div class="section-head">
+        <h2>Hướng dẫn dùng Code lấy Key từ Web</h2>
+        <div class="guide-mode-wrap">
+          <span class="muted small">Mẫu code:</span>
+          <div class="segmented" role="group" aria-label="Chế độ mẫu code">
+            <button type="button" class="seg-btn is-active" data-guide-mode="open">Open (rev-b64)</button>
+            <button type="button" class="seg-btn" data-guide-mode="encrypted">Encrypted (AES-256-GCM)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint-row guide-url-row">
+        <label for="guide-url-input" class="endpoint-label">URL kho trên Web</label>
+        <input
+          id="guide-url-input"
+          class="input mono endpoint-input"
+          type="url"
+          placeholder="https://username.github.io/repo/keys.json"
+        />
+        <button id="guide-url-reset" type="button" class="btn btn-secondary btn-sm">Mặc định</button>
+      </div>
+
+      <div class="tabs-bar">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab-btn is-active" data-tab="python" role="tab">Python</button>
+          <button type="button" class="tab-btn" data-tab="javascript" role="tab">JavaScript / Node.js</button>
+          <button type="button" class="tab-btn" data-tab="curl" role="tab">cURL / Bash</button>
+          <button type="button" class="tab-btn" data-tab="deploy" role="tab">Deploy GitHub.io</button>
+        </div>
+        <button id="copy-guide-code-btn" type="button" class="btn btn-secondary btn-sm">Chép code</button>
+      </div>
+
+      <div id="code-guide-body" class="code-guide-body"></div>
+    </section>
+
+    <!-- MANAGE, ADD & ENCRYPT REPO DATA FRAME -->
+    <section class="frame">
+      <div class="section-head">
+        <h2>Quản lý, Thêm Key &amp; Xuất keys.json</h2>
+        <span class="pill pill-outline">Cập nhật GitHub Repo</span>
+      </div>
+
+      <div class="callout">
+        <strong>Lưu ý bảo mật khi deploy GitHub / GitHub.io:</strong>
+        <p class="muted small">
+          GitHub Secret Scanning tự động phát hiện chuỗi <code>gsk_...</code> dạng văn bản thuần và phía Groq có thể tự động thu hồi (revoke) key bị lộ.
+          Vì vậy tệp <code>keys.json</code> mặc định mã hóa đảo chuỗi + Base64 (<code>rev-b64</code>) để tránh bị quét tự động khi đẩy lên Git.
+          Nếu kho <code>github.io</code> của bạn để công khai và bạn muốn bảo vệ key không cho người lạ đọc được, hãy chuyển sang chế độ <strong>Encrypted (AES-256-GCM)</strong> bên dưới để khóa bằng mật khẩu.
+        </p>
+      </div>
+
+      <form id="add-key-form" class="add-key-form">
+        <input
+          id="new-key-input"
+          class="input mono"
+          type="text"
+          placeholder="Dán Groq API key mới (bắt đầu bằng gsk_)"
+          autocomplete="off"
+          required
+        />
+        <input
+          id="new-key-label"
+          class="input"
+          type="text"
+          placeholder="Nhãn (vd: Groq Key #07)"
+          autocomplete="off"
+        />
+        <button type="submit" class="btn btn-primary">Thêm Key</button>
+      </form>
+
+      <div class="export-panel">
+        <div class="export-mode-row">
+          <span class="small strong">Chế độ lưu trữ khi xuất <code>keys.json</code>:</span>
+          <div class="segmented" role="group" aria-label="Chế độ xuất keys.json">
+            <button type="button" class="seg-btn is-active" data-export-mode="open">Open (rev-b64)</button>
+            <button type="button" class="seg-btn" data-export-mode="encrypted">Encrypted (AES-256-GCM)</button>
+          </div>
+        </div>
+
+        <div id="export-passphrase-row" class="export-pass-row hidden">
+          <input
+            id="export-passphrase"
+            class="input mono"
+            type="password"
+            placeholder="Đặt Master Passphrase (tối thiểu 6 ký tự)"
+            autocomplete="new-password"
+          />
+          <input
+            id="export-passphrase-confirm"
+            class="input mono"
+            type="password"
+            placeholder="Nhập lại Master Passphrase"
+            autocomplete="new-password"
+          />
+        </div>
+
+        <div class="export-actions">
+          <button id="download-json-btn" type="button" class="btn btn-primary">
+            Tải keys.json mới
+          </button>
+          <button id="copy-export-json-btn" type="button" class="btn btn-secondary">
+            Chép nội dung keys.json
+          </button>
+          <label class="btn btn-secondary file-btn">
+            Nạp keys.json từ máy
+            <input id="import-json-input" type="file" accept=".json,application/json" hidden />
+          </label>
+          <button id="reset-session-btn" type="button" class="btn btn-secondary">
+            Khôi phục theo repo
+          </button>
+        </div>
+        <p id="manage-feedback" class="small muted hidden"></p>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span class="muted small">Groq Key Vault • Pure HTML/CSS/JS • Zero backend • Monochrome Frame UI</span>
+    </footer>
+  </main>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script src="./keys-fallback.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
